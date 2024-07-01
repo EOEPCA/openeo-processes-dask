@@ -11,8 +11,12 @@ import pyproj
 import pystac_client
 import stackstac
 import xarray as xr
-from openeo_pg_parser_networkx.pg_schema import BoundingBox, TemporalInterval
 from stac_validator import stac_validator
+import xvec
+import fsspec
+import geopandas as gpd
+
+from openeo_pg_parser_networkx.pg_schema import BoundingBox, TemporalInterval
 
 from openeo_processes_dask.process_implementations.cubes._filter import (
     _reproject_bbox,
@@ -20,7 +24,7 @@ from openeo_processes_dask.process_implementations.cubes._filter import (
     filter_bbox,
     filter_temporal,
 )
-from openeo_processes_dask.process_implementations.data_model import RasterCube
+from openeo_processes_dask.process_implementations.data_model import RasterCube, VectorCube
 from openeo_processes_dask.process_implementations.exceptions import (
     NoDataAvailable,
     TemporalExtentEmpty,
@@ -32,7 +36,7 @@ from openeo_processes_dask.process_implementations.exceptions import (
 # "TemporalExtentEmpty": {
 #     "message": "The temporal extent is empty. The second instant in time must always be greater/later than the first instant in time."
 # }
-__all__ = ["load_stac"]
+__all__ = ["load_stac","load_url"]
 
 logger = logging.getLogger(__name__)
 
@@ -167,18 +171,15 @@ def load_stac(
 def load_url(url: str, format: str, options={}):
     import geopandas as gpd
     import requests
-
-    if format not in ["GeoJSON", "JSON", "Parquet"]:
+    print(f"options {options}")
+    if format.lower() not in ["geojson", "parquet"]:
         raise Exception(
             f"FormatUnsuitable: Data can't be loaded with the requested input format {format}."
         )
 
-    response = requests.get(url)
-    if not response.status_code < 400:
-        raise Exception(f"Provided url {url} unavailable. ")
-
-    if "JSON" in format:
-        url_json = response.json()
+    # response = requests.get(url)
+    # if not response.status_code < 400:
+    #     raise Exception(f"Provided url {url} unavailable. ")
 
     if format == "GeoJSON":
         for feature in url_json.get("features", {}):
@@ -195,26 +196,21 @@ def load_url(url: str, format: str, options={}):
         gdf = gpd.GeoDataFrame.from_features(url_json, crs=crs)
 
     elif "Parquet" in format:
-        import os
+       
+        with fsspec.open(url) as f:
+            gdf = gpd.read_parquet(f)
+            
+#         file_name = url.split("/")[-1]
 
-        import geoparquet as gpq
+#         with open(file_name, "wb") as file:
+#             file.write(response.content)
 
-        file_name = url.split("/")[-1]
+#         file_size = os.path.getsize(file_name)
+#         if file_size > 0:
+#             logger.info(f"File downloaded successfully. File size: {file_size} bytes")
 
-        with open(file_name, "wb") as file:
-            file.write(response.content)
-
-        file_size = os.path.getsize(file_name)
-        if file_size > 0:
-            logger.info(f"File downloaded successfully. File size: {file_size} bytes")
-
-        gdf = gpq.read_geoparquet(file_name)
-        os.system(f"rm -rf {file_name}")
-
-    elif format == "JSON":
-        return url_json
-
-    import xvec
+#         gdf = gpq.read_geoparquet(file_name)
+#         os.system(f"rm -rf {file_name}")
 
     if not hasattr(gdf, "crs"):
         gdf = gdf.set_crs("epsg:4326")

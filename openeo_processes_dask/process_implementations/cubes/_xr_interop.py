@@ -18,7 +18,7 @@ TEMPORAL_GUESSES = [
 X_GUESSES = ["x", "lon", "longitude"]
 Y_GUESSES = ["y", "lat", "latitude"]
 BANDS_GUESSES = ["b", "bands", "band"]
-
+GEOMETRY_GUESSES = ["geometry", "geometries"]
 
 @xr.register_dataarray_accessor("openeo")
 class OpenEOExtensionDa:
@@ -29,10 +29,11 @@ class OpenEOExtensionDa:
         ) + self._guess_dims_for_type(Y_GUESSES)
         self._temporal_dims = self._guess_dims_for_type(TEMPORAL_GUESSES)
         self._bands_dims = self._guess_dims_for_type(BANDS_GUESSES)
+        self._geometry_dims = self._guess_dims_for_type(GEOMETRY_GUESSES)
         self._other_dims = [
             dim
             for dim in self._obj.dims
-            if dim not in self._spatial_dims + self._temporal_dims + self._bands_dims
+            if dim not in self._spatial_dims + self._temporal_dims + self._bands_dims + self._geometry_dims
         ]
 
     @property
@@ -73,8 +74,13 @@ class OpenEOExtensionDa:
         return tuple(self._get_existing_dims_and_pop_missing(self._bands_dims))
 
     @property
+    def geometry_dims(self) -> tuple[str]:
+        """Find and return all geometry dimensions of the vector-cube as a list."""
+        return tuple(self._get_existing_dims_and_pop_missing(self._geometry_dims))
+
+    @property
     def other_dims(self) -> tuple[str]:
-        """Find and return any dimensions with type other as s list."""
+        """Find and return any dimensions with type other as a list."""
         return tuple(self._get_existing_dims_and_pop_missing(self._other_dims))
 
     @property
@@ -119,6 +125,8 @@ class OpenEOExtensionDa:
             self._temporal_dims.append(name)
         elif type == "bands":
             self._bands_dims.append(name)
+        elif type == "geometry":
+            self._geometry_dims.append(name)
         elif type == "other":
             self._other_dims.append(name)
         else:

@@ -1,9 +1,9 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 import xarray as xr
 
-from openeo_processes_dask.process_implementations.data_model import RasterCube
+from openeo_processes_dask.process_implementations.data_model import RasterCube, VectorCube
 from openeo_processes_dask.process_implementations.exceptions import (
     OverlapResolverMissing,
 )
@@ -20,18 +20,28 @@ Overlap = namedtuple("Overlap", ["only_in_cube1", "only_in_cube2", "in_both"])
 
 
 def merge_cubes(
-    cube1: RasterCube,
-    cube2: RasterCube,
+    cube1: Union[RasterCube,VectorCube],
+    cube2: Union[RasterCube,VectorCube],
     overlap_resolver: Callable = None,
     context: Optional[dict] = None,
-) -> RasterCube:
+) -> Union[RasterCube,VectorCube]:
     if context is None:
         context = {}
     if not isinstance(cube1, type(cube2)):
         raise Exception(
             f"Provided cubes have incompatible types. cube1: {type(cube1)}, cube2: {type(cube2)}"
         )
-
+    # Are them two vector cubes?
+    if isinstance(cube1, xr.Dataset):
+        #TODO: improve the vector cube merge
+        if hasattr(cube1, "xvec") and hasattr(cube2, "xvec"):
+            try:
+                return cube1.merge(cube2)
+            except Exception as e:
+                raise Exception(
+                    f"Merging of two vector cubes failed! This feature is still experimental. Error: {e}"
+                )            
+            
     # Key: dimension name
     # Value: (labels in cube1 not in cube2, labels in cube2 not in cube1)
     overlap_per_shared_dim = {
