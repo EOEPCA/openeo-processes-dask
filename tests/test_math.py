@@ -13,10 +13,10 @@ def test_quantiles():
     )
     quantiles_1 = [_round(quantile, p=2) for quantile in quantiles_1]
     assert quantiles_1 == [2.07, 2.14, 2.28, 2.7, 3.4, 4.5]
-    quantiles_2 = quantiles(data=np.array([2, 4, 4, 4, 5, 5, 7, 9]), q=4)
+    quantiles_2 = quantiles(data=np.array([2, 4, 4, 4, 5, 5, 7, 9]), probabilities=4)
     quantiles_2 = [_round(quantile, p=2) for quantile in quantiles_2]
     assert quantiles_2 == [4, 4.5, 5.5]
-    quantiles_3 = quantiles(data=np.array([-1, -0.5, np.nan, 1]), q=2)
+    quantiles_3 = quantiles(data=np.array([-1, -0.5, np.nan, 1]), probabilities=[2])
     quantiles_3 = [_round(quantile, p=2) for quantile in quantiles_3]
     assert quantiles_3 == [-0.5]
     quantiles_4 = quantiles(
@@ -118,3 +118,59 @@ def test_extrema():
     dask_array = da.from_array(np.array(array_list))
     result = extrema(dask_array, ignore_nodata=True, axis=0, keepdims=False)
     assert np.array_equal(result_np, result.compute())
+
+
+def test_cumproduct():
+    array_list = [1, 2, 3, np.nan, 3, 1]
+    result_np = [1, 2, 6, np.nan, 18, 18]
+
+    result = cumproduct(array_list)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+    array_list = [1, 2, 3, np.nan, 3, 1]
+    result_np = [1, 2, 6, np.nan, np.nan, np.nan]
+
+    result = cumproduct(array_list, ignore_nodata=False)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+
+def test_cumsum():
+    array_list = [1, 3, np.nan, 3, 1]
+    result_np = [1, 4, np.nan, 7, 8]
+
+    result = cumsum(array_list)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+    array_list = [1, 3, np.nan, 3, 1]
+    result_np = [1, 4, np.nan, np.nan, np.nan]
+
+    result = cumsum(array_list, ignore_nodata=False)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+
+def test_cummin():
+    array_list = [5, 3, np.nan, 1, 5]
+    result_np = [5, 3, np.nan, 1, 1]
+
+    result = cummin(array_list)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+    array_list = [1, 3, np.nan, 3, 1]
+    result_np = [1, 1, np.nan, np.nan, np.nan]
+
+    result = cummin(array_list, ignore_nodata=False)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+
+def test_cummax():
+    array_list = [1, 3, np.nan, 5, 1]
+    result_np = [1, 3, np.nan, 5, 5]
+
+    result = cummax(array_list)
+    assert np.array_equal(result_np, result, equal_nan=True)
+
+    array_list = [1, 3, np.nan, 3, 1]
+    result_np = [1, 3, np.nan, np.nan, np.nan]
+
+    result = cummax(array_list, ignore_nodata=False)
+    assert np.array_equal(result_np, result, equal_nan=True)

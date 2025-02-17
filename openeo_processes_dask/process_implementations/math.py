@@ -1,3 +1,5 @@
+import logging
+
 import dask
 import dask.array as da
 import numpy as np
@@ -24,6 +26,10 @@ __all__ = [
     "add",
     "_sum",
     "_min",
+    "cumsum",
+    "cumproduct",
+    "cummin",
+    "cummax",
     "_max",
     "median",
     "mean",
@@ -61,6 +67,8 @@ __all__ = [
     "product",
     "normalized_difference",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 def e():
@@ -111,6 +119,58 @@ def _min(data, ignore_nodata=True, axis=None, keepdims=False):
         return np.nanmin(data, axis=axis, keepdims=keepdims)
     else:
         return np.min(data, axis=axis, keepdims=keepdims)
+
+
+def cumsum(data, ignore_nodata=True, axis=None):
+    nan_mask = np.isnan(data)
+
+    if ignore_nodata:
+        result = np.nancumsum(data, axis=axis)
+    else:
+        result = np.cumsum(data, axis=axis)
+
+    result[nan_mask] = np.nan
+    return result
+
+
+def cumproduct(data, ignore_nodata=True, axis=None):
+    nan_mask = np.isnan(data)
+
+    if ignore_nodata:
+        result = np.nancumprod(data, axis=axis)
+    else:
+        result = np.cumprod(data, axis=axis)
+
+    result[nan_mask] = np.nan
+    return result
+
+
+def cummin(data, ignore_nodata=True, axis=None):
+    data = np.array(data)
+    nan_mask = np.isnan(data)
+
+    if ignore_nodata:
+        data_filled = np.where(nan_mask, np.inf, data)
+        result = np.minimum.accumulate(data_filled, axis=axis)
+    else:
+        result = np.minimum.accumulate(data, axis=axis)
+
+    result[nan_mask] = np.nan
+    return result
+
+
+def cummax(data, ignore_nodata=True, axis=None):
+    data = np.array(data)
+    nan_mask = np.isnan(data)
+
+    if ignore_nodata:
+        data_filled = np.where(nan_mask, -np.inf, data)
+        result = np.maximum.accumulate(data_filled, axis=axis)
+    else:
+        result = np.maximum.accumulate(data, axis=axis)
+
+    result[nan_mask] = np.nan
+    return result
 
 
 def _max(data, ignore_nodata=True, axis=None, keepdims=False):
@@ -290,10 +350,23 @@ def quantiles(
             "The process `quantiles` only allows that either the `probabilities` or the `q` parameter is set."
         )
 
-    if isinstance(probabilities, list):
+    if isinstance(probabilities, int):
+        probabilities = np.arange(1.0 / probabilities, 1, 1.0 / probabilities)
+
+    elif (
+        isinstance(probabilities, list)
+        and len(probabilities) == 1
+        and isinstance(probabilities[0], int)
+    ):
+        probabilities = np.arange(1.0 / probabilities[0], 1, 1.0 / probabilities[0])
+
+    elif isinstance(probabilities, list):
         probabilities = np.array(probabilities)
 
     if q is not None:
+        logger.warning(
+            "This parameter has been **deprecated**. Please use the parameter `probabilities` instead."
+        )
         probabilities = np.arange(1.0 / q, 1, 1.0 / q)
 
     if data.size == 0:
@@ -307,6 +380,8 @@ def quantiles(
         result = np.quantile(
             data, q=probabilities, method="linear", axis=axis, keepdims=keepdims
         )
+    if axis:
+        result = np.moveaxis(result, 0, axis)
 
     return result
 
